@@ -25,20 +25,19 @@ int search_command = 0;
 
 
 //flags
-int deep = 0;
 int shallow = 0;
 int normal = 0;
 
 int group = 0;
 
-int git = 1;
-int hg = 1;
+int git = 0;
+int hg = 0;
 int cvs = 0;
 
 
 //constants
-const char* helpMessage = "usage: verse [--version | -v][--help | -h][--usage | -u]\n"
-                          "             [-d | -s | -n][--group | -g] <command>";
+const char* helpMessage = "usage: verse [--version | -v][--help | -h][--usage | -u][-s | -n]\n"
+                          "             [--group | -g][--all | -a]<command>";
 
 const char* version = "verse version 1.0.0";
 
@@ -49,10 +48,11 @@ struct option arguments[] = {
   {"help", no_argument, 0, 'h'},
   {"usage", no_argument, 0, 'u'},
   {"group", no_argument, 0, 'g'},
+  {"all", no_argument, 0, 'a'},
   {0, 0, 0, 0}
 };
 
-const char* shortFlags = "vVhHuUdDsSnNgG";
+const char* shortFlags = "vVhHuUsSnNgGaA";
 int optionIndex = 0;
 
 
@@ -66,6 +66,9 @@ int main(int argc, char** argv) {
     return 1;
 
   } else {
+
+    printFlagsAndCommands();
+    return 0;
 
     //execute
     if(help_command) {
@@ -82,15 +85,14 @@ int main(int argc, char** argv) {
 
       if(normal) {
         normalTraverse();
-      } else if(shallow) {
+      } else {
         shallowTraverse();
-      } else if(deep) {
-        deepTraverse();
       }
-      
+
     }
 
   }
+
 }
 
 
@@ -224,71 +226,6 @@ void normalTraverse() {
 
 }
 
-void deepTraverse() {
-
-  //initialize queue with current directory
-  queue* files = makeQueue();
-  queueNode* start = makeNode();
-  start->dir = ".";
-  enqueue(files, start);
-
-  DIR* dir = NULL;
-  struct dirent* sub = NULL;
-
-  while(!isEmpty(files)) {
-  
-    queueNode* curr = dequeue(files);
-
-    if((dir = opendir(curr->dir)) != NULL) {
-     
-      while((sub = readdir(dir)) != NULL) {
-        
-        char* subdirName = sub->d_name;
-        int isVersionControl = 0;
-    
-        //check if directory is a repository
-        if(git && !strcmp(subdirName, ".git")) {
-          printf("%s        git\n", curr->dir);
-          isVersionControl = 1;
-        }
-        
-        if(hg && !strcmp(subdirName, ".hg")) {
-          printf("%s        hg\n", curr->dir);
-          isVersionControl = 1;
-        }
-
-        if(cvs && !strcmp(subdirName, ".cvs")) {
-          printf("%s        cvs\n", curr->dir);
-          isVersionControl = 1;
-        }
-        
-        //if this file is a directory, look into it
-        if(sub->d_type == DT_DIR && !isVersionControl && strcmp(subdirName, ".") && strcmp(subdirName, "..")) {
-
-          //create string containing subdirectory path
-          int currDirLen = strlen(curr->dir);
-          int subdirNameLen = strlen(subdirName);
-          char* newName = (char*) malloc(sizeof(char) * (currDirLen + subdirNameLen + 2));
-
-          for(int i = 0; i < currDirLen; i++)
-            newName[i] = (curr->dir)[i];
-          newName[currDirLen] = '/';
-          for(int i = currDirLen+1; i <= currDirLen + subdirNameLen; i++)
-            newName[i] = subdirName[i-currDirLen-1];
-          newName[currDirLen + subdirNameLen + 1] = '\0'; 
-
-          //add new node to queue
-          queueNode* subdirectory = makeNode();
-          subdirectory->dir = newName;
-          enqueue(files, subdirectory);
-        }
-      }
-    }
-  }  
-
-}
-
-
 
 //make sure flags and commands don't conflict
 int validateArguments() {
@@ -296,13 +233,11 @@ int validateArguments() {
   int invalid = 0;
 
   //only 1 recursive-depth flag can be turned on
-  int recOptionFlagCount = 0;
-  recOptionFlagCount = (deep) ? 1 : 0;
+  int recOptionFlagCount = (normal) ? 1 : 0;
   recOptionFlagCount = (shallow) ? recOptionFlagCount+1 : recOptionFlagCount;
-  recOptionFlagCount = (normal) ? recOptionFlagCount+1 : recOptionFlagCount;
 
   if(recOptionFlagCount > 1) {
-    printf("Only 1 recursive depth flag [-d | -s | -n] can be specified\n");
+    printf("Only 1 recursive depth flag [-s | -n] can be specified\n");
     invalid = 1;
   }
 
@@ -312,6 +247,11 @@ int validateArguments() {
   commandCount = (version_command) ? commandCount+1 : commandCount;
   commandCount = (usage_command) ? commandCount+1 : commandCount;
   commandCount = (search_command) ? commandCount+1 : commandCount;
+
+  if(commandCount == 0) {
+    printf("No commands were specified. Please specify exactly 1 command.\n");
+    invalid = 1;
+  }
 
   if(commandCount > 1) {
     printf("Only 1 command can be specified\n");
@@ -336,20 +276,30 @@ void parseArguments(int argc, char** argv) {
       case 'V': version_command = 1; break;
       case 'u': usage_command = 1; break;
       case 'U': usage_command = 1; break;
-      case 'd': deep = 1; break;
-      case 'D': deep = 1; break;
       case 's': shallow = 1; break;
       case 'S': shallow = 1; break;
       case 'n': normal = 1; break;
       case 'N': normal = 1; break;
       case 'g': group = 1; break;
       case 'G': group = 1; break;
+      case 'a': git = hg = cvs = 1; break;
+      case 'A': git = hg = cvs = 1; break;
     }  
   }
 
   //if no search options have been set, default is normal 
-  if(!(deep | shallow | normal))
+  if(!shallow && !normal) {
+    shallow = 0; 
     normal = 1;
+  }
+
+  //if no version control option flags are set, default is only git
+  if(!git && !hg && !cvs) { 
+    git = 1;
+    hg = cvs = 0;
+  }
+
+  printf("optionIndex: %d\n", optionIndex);
 
   //parse command (should only be 1)
   for(int i = optionIndex; i < argc; i++) {
@@ -375,7 +325,6 @@ void printFlagsAndCommands() {
           "search_command = %d\n"
           "usage_command = %d\n\n"
           
-          "deep = %d\n"
           "shallow = %d\n"
           "normal = %d\n"
           "group = %d\n\n"
@@ -385,7 +334,7 @@ void printFlagsAndCommands() {
           "cvs = %d\n", 
         
           help_command, version_command, search_command, usage_command, 
-          deep, shallow, normal, group, git, hg, cvs);
+          shallow, normal, group, git, hg, cvs);
 }
 
 
