@@ -1,14 +1,21 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <getopt.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include "queue.h"
 
 //forward declarations
 void parseArguments(int argc, char** argv);
 int validateArguments();
 void printFlagsAndCommands();
+
+void shallowTraverse();
+void normalTraverse();
+void deepTraverse();
 
 //represents the various commands
 int help_command = 0;
@@ -24,8 +31,8 @@ int normal = 0;
 
 int group = 0;
 
-int git = 0;
-int hg = 0;
+int git = 1;
+int hg = 1;
 int cvs = 0;
 
 
@@ -91,26 +98,193 @@ int main(int argc, char** argv) {
 //BFS traversal of directories to find all repositories
 void shallowTraverse() {
 
- //TODO
- /* DIR* d;
-  struct dirent *ep;  
+  //create queue to hold subdirectories
+  queue* subdirectories = makeQueue();
+  queueNode* node = makeNode();
+  node->dir = ".";
+  enqueue(subdirectories, node);
 
-  d = opendir("./");
-  while(ep = readdir(d)) {
-    if(ep->d_type == DT_DIR)
-      printf("%s\n", ep->d_name);
+  //check each subdirectory in the root
+  DIR* dir = NULL;
+  struct dirent* sub = NULL;
+
+  if((dir = opendir(".")) != NULL) {
+  
+    while((sub = readdir(dir)) != NULL) {
+  
+      char* subdirName = sub->d_name;
+      if((sub->d_type == DT_DIR) && strcmp(subdirName, ".") && strcmp(subdirName, "..") &&
+         strcmp(subdirName, ".git") && strcmp(subdirName, ".hg") && strcmp(subdirName, ".cvs")) {
+      
+        //add subdirectory to the queue
+        int len = strlen(subdirName);
+        char* addDir = (char*) malloc(sizeof(char) * (len+3));
+        addDir[0] = '.'; addDir[1] = '/';
+        for(int i = 0; i < len; i++)
+          addDir[i+2] = subdirName[i];
+        addDir[len+2] = '\0';
+
+        //enqueue the node
+        queueNode* addNode = makeNode();
+        addNode->dir = addDir;
+        enqueue(subdirectories, addNode);
+      }
+    } 
+
+  } else {
+    return;
   }
-  */
+
+  //search for repositories 1 layer in
+  while(!isEmpty(subdirectories)) {
+  
+    char* currDir = dequeue(subdirectories)->dir;
+    if((dir = opendir(currDir)) != NULL) {
+  
+      while((sub = readdir(dir)) != NULL) {
+  
+        char* subdirName = sub->d_name;
+
+        //check if directory is a repository
+        if(git && !strcmp(subdirName, ".git"))
+          printf("%s        git\n", currDir);
+        
+        if(hg && !strcmp(subdirName, ".hg"))
+          printf("%s        hg\n", currDir);
+
+        if(cvs && !strcmp(subdirName, ".cvs"))
+          printf("%s        cvs\n", currDir);
+      }
+    }
+  }
 
 }
 
 void normalTraverse() {
-  //TODO
+
+  //initialize queue with current directory
+  queue* files = makeQueue();
+  queueNode* start = makeNode();
+  start->dir = ".";
+  enqueue(files, start);
+
+  DIR* dir = NULL;
+  struct dirent* sub = NULL;
+
+  while(!isEmpty(files)) {
+  
+    queueNode* curr = dequeue(files);
+
+    if((dir = opendir(curr->dir)) != NULL) {
+     
+      while((sub = readdir(dir)) != NULL) {
+        
+        char* subdirName = sub->d_name;
+        int isVersionControl = 0;
+    
+        //check if directory is a repository
+        if(git && !strcmp(subdirName, ".git")) {
+          printf("%s        git\n", curr->dir);
+          isVersionControl = 1;
+        }
+        
+        if(hg && !strcmp(subdirName, ".hg")) {
+          printf("%s        hg\n", curr->dir);
+          isVersionControl = 1;
+        }
+
+        if(cvs && !strcmp(subdirName, ".cvs")) {
+          printf("%s        cvs\n", curr->dir);
+          isVersionControl = 1;
+        }
+        
+        //if this file is a directory, look into it
+        if(sub->d_type == DT_DIR && !isVersionControl && strcmp(subdirName, ".") && strcmp(subdirName, "..")) {
+
+          //create string containing subdirectory path
+          int currDirLen = strlen(curr->dir);
+          int subdirNameLen = strlen(subdirName);
+          char* newName = (char*) malloc(sizeof(char) * (currDirLen + subdirNameLen + 2));
+
+          for(int i = 0; i < currDirLen; i++)
+            newName[i] = (curr->dir)[i];
+          newName[currDirLen] = '/';
+          for(int i = currDirLen+1; i <= currDirLen + subdirNameLen; i++)
+            newName[i] = subdirName[i-currDirLen-1];
+          newName[currDirLen + subdirNameLen + 1] = '\0'; 
+
+          //add new node to queue
+          queueNode* subdirectory = makeNode();
+          subdirectory->dir = newName;
+          enqueue(files, subdirectory);
+        }
+      }
+    }
+  }  
 
 }
 
 void deepTraverse() {
-  //TODO
+
+  //initialize queue with current directory
+  queue* files = makeQueue();
+  queueNode* start = makeNode();
+  start->dir = ".";
+  enqueue(files, start);
+
+  DIR* dir = NULL;
+  struct dirent* sub = NULL;
+
+  while(!isEmpty(files)) {
+  
+    queueNode* curr = dequeue(files);
+
+    if((dir = opendir(curr->dir)) != NULL) {
+     
+      while((sub = readdir(dir)) != NULL) {
+        
+        char* subdirName = sub->d_name;
+        int isVersionControl = 0;
+    
+        //check if directory is a repository
+        if(git && !strcmp(subdirName, ".git")) {
+          printf("%s        git\n", curr->dir);
+          isVersionControl = 1;
+        }
+        
+        if(hg && !strcmp(subdirName, ".hg")) {
+          printf("%s        hg\n", curr->dir);
+          isVersionControl = 1;
+        }
+
+        if(cvs && !strcmp(subdirName, ".cvs")) {
+          printf("%s        cvs\n", curr->dir);
+          isVersionControl = 1;
+        }
+        
+        //if this file is a directory, look into it
+        if(sub->d_type == DT_DIR && !isVersionControl && strcmp(subdirName, ".") && strcmp(subdirName, "..")) {
+
+          //create string containing subdirectory path
+          int currDirLen = strlen(curr->dir);
+          int subdirNameLen = strlen(subdirName);
+          char* newName = (char*) malloc(sizeof(char) * (currDirLen + subdirNameLen + 2));
+
+          for(int i = 0; i < currDirLen; i++)
+            newName[i] = (curr->dir)[i];
+          newName[currDirLen] = '/';
+          for(int i = currDirLen+1; i <= currDirLen + subdirNameLen; i++)
+            newName[i] = subdirName[i-currDirLen-1];
+          newName[currDirLen + subdirNameLen + 1] = '\0'; 
+
+          //add new node to queue
+          queueNode* subdirectory = makeNode();
+          subdirectory->dir = newName;
+          enqueue(files, subdirectory);
+        }
+      }
+    }
+  }  
 
 }
 
