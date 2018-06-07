@@ -18,28 +18,43 @@ void normalTraverse();
 void deepTraverse();
 
 //represents the various commands
-int help_command = 0;
-int version_command = 0;
-int usage_command = 0;
-int search_command = 0;
+static int help_command = 0;
+static int version_command = 0;
+static int usage_command = 0;
+static int search_command = 0;
 
 
 //flags
-int shallow = 0;
-int normal = 0;
+static int shallow = 0;
+static int normal = 0;
 
-int group = 0;
+static int git = 0;
+static int hg = 0;
+static int cvs = 0;
 
-int git = 0;
-int hg = 0;
-int cvs = 0;
-
+static int group = 0;
 
 //constants
-const char* helpMessage = "usage: verse [--version | -v][--help | -h][--usage | -u][-s | -n]\n"
-                          "             [--group | -g][--all | -a]<command>";
+static const char* version = "verse version 1.0.0";
 
-const char* version = "verse version 1.0.0";
+static const char* usage = "usage: verse [--version | -v][--help | -h][--usage | -u][-s | -n]\n"
+                           "             [--group | -g][--all | -a]<command>";
+
+static const char* help = "usage: verse [--version | -v][--help | -h][--usage | -u][-s | -n]\n"
+                          "             [--group | -g][--all | -a]<command>\n\n"
+
+                          "Commands:\n"
+                          "    version                 Get the version of the program that's running\n"
+                          "    usage                   Get a compact representation of the command syntax\n"
+                          "    help                    Get usage information plus explanation of each command and flag option\n"
+                          "    search                  Find version control repositories in all subdirectories, including this one\n\n"
+
+                          "Flags:\n"
+                          "    --version, -v           Get the version of the program that is running (equivalent to version command)\n"
+                          "    --usage, -u             Get a compact representation of the command syntax (equivalent to usage command)\n"
+                          "    --help, -h              Get usage information plus explanation of each command and flag option (equivalent to help command)\n" 
+                          "    --group, -g             When searching, get the repository printout grouped by version control type\n"
+                          "    --all, -a               When searching, look for repos of all 3 supported version control systems (Git, Mercurial, CVS)";
 
 
 //flag parsing data for getopt_long function
@@ -53,13 +68,14 @@ struct option arguments[] = {
 };
 
 const char* shortFlags = "vVhHuUsSnNgGaA";
-int optionIndex = 0;
+int argumentsIndex = 0;
 
 
 int main(int argc, char** argv) {
 
   //process command-line arguments
   parseArguments(argc, argv);
+  printFlagsAndCommands();
 
   if(validateArguments()) {
 
@@ -67,19 +83,18 @@ int main(int argc, char** argv) {
 
   } else {
 
-    printFlagsAndCommands();
-    return 0;
-
     //execute
     if(help_command) {
-      //TODO
+      
+      printf("%s\n", help);
+
     } else if(version_command) {
 
       printf("%s\n", version);   
 
     } else if(usage_command) {
 
-      printf("%s\n", helpMessage);
+      printf("%s\n", usage);
 
     } else if(search_command) {
 
@@ -265,10 +280,11 @@ int validateArguments() {
 //parse command line arguments
 void parseArguments(int argc, char** argv) {
 
+  optind = 0;
   int flag = 0;
 
   //parse option flags
-  while((flag = getopt_long(argc, argv, shortFlags, arguments, &optionIndex)) != -1) {
+  while((flag = getopt_long(argc, argv, shortFlags, arguments, &argumentsIndex)) != -1) {
     switch(flag) {
       case 'h': help_command = 1; break;
       case 'H': help_command = 1; break;
@@ -293,16 +309,8 @@ void parseArguments(int argc, char** argv) {
     normal = 1;
   }
 
-  //if no version control option flags are set, default is only git
-  if(!git && !hg && !cvs) { 
-    git = 1;
-    hg = cvs = 0;
-  }
-
-  printf("optionIndex: %d\n", optionIndex);
-
   //parse command (should only be 1)
-  for(int i = optionIndex; i < argc; i++) {
+  for(int i = optind; i < argc; i++) {
 
     if(strcmp(argv[i], "version") == 0) {
       version_command = 1;
@@ -311,9 +319,29 @@ void parseArguments(int argc, char** argv) {
     } else if(strcmp(argv[i], "usage") == 0) {
       usage_command = 1;
     } else if(strcmp(argv[i], "search") == 0) {
+
       search_command = 1;
+
+      for(int j = i+1; j < argc; j++) {       
+        if(!strcmp(argv[j], "git")) {
+          git = 1;
+        } else if(!strcmp(argv[j], "hg")) {
+          hg = 1;
+        } else if(!strcmp(argv[j], "cvs")) {
+          cvs = 1;
+        }
+      }
+      
+      //if no version control option flags are set, default is only git
+      if(!git && !hg && !cvs) { 
+        git = 1;
+        hg = cvs = 0;
+      }
+      
+      return;
     }
   }
+
 }
 
 
