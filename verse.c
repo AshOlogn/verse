@@ -11,6 +11,7 @@
 //forward declarations
 void parseArguments(int argc, char** argv);
 int validateArguments();
+char* getFreeableString(char* str);
 void printFlagsAndCommands();
 
 void shallowTraverse();
@@ -22,7 +23,6 @@ static int help_command = 0;
 static int version_command = 0;
 static int usage_command = 0;
 static int search_command = 0;
-
 
 //flags
 static int shallow = 0;
@@ -248,7 +248,7 @@ void normalTraverse() {
   //initialize queue with current directory
   queue* files = makeQueue();
   queueNode* start = makeNode();
-  start->dir = ".";
+  start->dir = getFreeableString(".");
   enqueue(files, start);
 
   DIR* dir = NULL;
@@ -263,35 +263,21 @@ void normalTraverse() {
 
   while(!isEmpty(files)) {
  
-    //printQueue(files); 
     queueNode* curr = dequeue(files);
 
     if((dir = opendir(curr->dir)) != NULL) {
  
-      char* lmao = "./Projects"; 
-      int look = 1;
-      for(int i = 0; i < 10; i++)
-        if(lmao[i] != (curr->dir)[i])
-          look = 0;
-
-      if(look)
-       printf("%s\n", curr->dir);
-     
       while((sub = readdir(dir)) != NULL) {
-        
   
         char* subdirName = sub->d_name;
         int isVersionControl = 0;
-  
-        if(look)
-          printf("child %s\n", subdirName);
   
         //check if directory is a repository
         if(git && !strcmp(subdirName, ".git")) {
 
           if(group) {
             queueNode* qnode = makeNode();
-            qnode->dir = curr->dir;
+            qnode->dir = getFreeableString(curr->dir);
             enqueue(gitRepos, qnode);
           } else {
             printf("%s        git\n", curr->dir);
@@ -304,7 +290,7 @@ void normalTraverse() {
 
           if(group) {
             queueNode* qnode = makeNode();
-            qnode->dir = curr->dir;
+            qnode->dir = getFreeableString(curr->dir);
             enqueue(hgRepos, qnode);
           } else {
             printf("%s        hg\n", curr->dir);
@@ -317,7 +303,7 @@ void normalTraverse() {
           
           if(group) {
             queueNode* qnode = makeNode();
-            qnode->dir = curr->dir;
+            qnode->dir = getFreeableString(curr->dir);
             enqueue(cvsRepos, qnode);
           } else {
             printf("%s        cvs\n", curr->dir);
@@ -348,17 +334,28 @@ void normalTraverse() {
         }
       }
     }
+
+    //free data associated with current node
+    freeQueueNode(curr);
 	
   }
+
+  //free the BFS queue
+  freeQueue(files);
 
   //if output should be grouped, print the repos in the queues
   if(group) {
   
     if(git) {
       printf("Git---------------------------\n");
+      queueNode* qn = NULL;
       while(!isEmpty(gitRepos)) {
-        printf("%s\n", dequeue(gitRepos)->dir);
+        qn = dequeue(gitRepos);
+        printf("%s\n", qn->dir);
+        freeQueueNode(qn);
       }
+
+      freeQueue(gitRepos);
     }
 
     if(hg) {
@@ -367,9 +364,14 @@ void normalTraverse() {
         printf("\n");
 
       printf("Mercurial---------------------------\n");
+      queueNode* qn = NULL;
       while(!isEmpty(hgRepos)) {
-        printf("%s\n", dequeue(hgRepos)->dir);
+        qn = dequeue(hgRepos);
+        printf("%s\n", qn->dir);
+        freeQueueNode(qn);
       }
+
+      freeQueue(hgRepos);
     }
 
     if(cvs) {
@@ -378,9 +380,14 @@ void normalTraverse() {
         printf("\n");
 
       printf("CVS---------------------------\n");
+      queueNode* qn = NULL;
       while(!isEmpty(cvsRepos)) {
-        printf("%s\n", dequeue(cvsRepos)->dir);
+        qn = dequeue(cvsRepos);
+        printf("%s\n", qn->dir);
+        freeQueueNode(qn);
       }
+
+      freeQueue(cvsRepos);
     }
 
   }
@@ -490,6 +497,15 @@ void parseArguments(int argc, char** argv) {
     }
   }
 
+}
+
+//returns equivalent of string literal allocated on heap (so it can be freed)
+char* getFreeableString(char* str) {
+  int len = strlen(str);
+  char* ptr = (char*) malloc(sizeof(char)*(len+1));
+  strncpy(ptr, str, len+1);
+  ptr[len] = '\0';
+  return ptr;
 }
 
 

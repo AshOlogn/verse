@@ -16,15 +16,14 @@ queue* makeQueue() {
 
 
 //destructors
-freeQueueNode(queueNode* qn) {
+void freeQueueNode(queueNode* qn) {
   free(qn->dir);
   free(qn);  
 }
 
-freeQueue(queue* q) {
+void freeQueue(queue* q) {
 
   queueNode* qn = NULL;
-
   while(!isEmpty(q)) {
     qn = dequeue(q);
     freeQueueNode(qn);

@@ -18,8 +18,8 @@ queueNode* makeNode();
 queue* makeQueue();
 
 //destructors
-freeQueueNode(queueNode* qn);
-freeQueue(queue* q);
+void freeQueueNode(queueNode* qn);
+void freeQueue(queue* q);
 
 int isEmpty(queue* q);
 
