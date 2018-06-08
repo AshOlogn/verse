@@ -14,6 +14,26 @@ queue* makeQueue() {
   q->head = q->tail = NULL;
 }
 
+
+//destructors
+freeQueueNode(queueNode* qn) {
+  free(qn->dir);
+  free(qn);  
+}
+
+freeQueue(queue* q) {
+
+  queueNode* qn = NULL;
+
+  while(!isEmpty(q)) {
+    qn = dequeue(q);
+    freeQueueNode(qn);
+  }
+
+  free(q);
+}
+
+
 //returns if queue has any elements in it
 int isEmpty(queue* q) {
   return q->head == NULL;
@@ -44,18 +64,17 @@ queueNode* dequeue(queue* q) {
   if(q == NULL)
     return NULL;
 
-  if(q->head == NULL) {
+  if(q->tail == NULL) {
     q->head = q->tail = NULL;
     return NULL;
   }   
 
-  queueNode* ret = q->head;
-  if(q->head->next == NULL) {
-    q->head->prev = NULL;
+  queueNode* ret = q->tail;
+  if(q->tail->prev == NULL) {
     q->head = q->tail = NULL;
   } else {
-    q->head = q->head->next;
-    q->head->prev = NULL;
+    q->tail = q->tail->prev;
+    q->tail->next = NULL;
   }
 
   return ret;

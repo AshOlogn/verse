@@ -33,6 +33,10 @@ static int hg = 0;
 static int cvs = 0;
 
 static int group = 0;
+static queue* gitRepos = NULL;
+static queue* hgRepos = NULL;
+static queue* cvsRepos = NULL;
+
 
 //constants
 static const char* version = "verse version 1.0.0";
@@ -75,7 +79,6 @@ int main(int argc, char** argv) {
 
   //process command-line arguments
   parseArguments(argc, argv);
-  printFlagsAndCommands();
 
   if(validateArguments()) {
 
@@ -121,6 +124,13 @@ void shallowTraverse() {
   node->dir = ".";
   enqueue(subdirectories, node);
 
+  //if output should be grouped, malloc queues
+  if(group) {
+    gitRepos = makeQueue();
+    hgRepos = makeQueue();
+    cvsRepos = makeQueue();
+  }
+
   //check each subdirectory in the root
   DIR* dir = NULL;
   struct dirent* sub = NULL;
@@ -163,16 +173,72 @@ void shallowTraverse() {
         char* subdirName = sub->d_name;
 
         //check if directory is a repository
-        if(git && !strcmp(subdirName, ".git"))
-          printf("%s        git\n", currDir);
+        if(git && !strcmp(subdirName, ".git")) {
+          if(group) {
+            queueNode* qnode = makeNode();
+            qnode->dir = currDir;
+            enqueue(gitRepos, qnode);
+          } else {
+            printf("%s        git\n", currDir);
+          }
+        }
         
-        if(hg && !strcmp(subdirName, ".hg"))
-          printf("%s        hg\n", currDir);
+        if(hg && !strcmp(subdirName, ".hg")) {
+          if(group) {
+            queueNode* qnode = makeNode();
+            qnode->dir = currDir;
+            enqueue(hgRepos, qnode);
+          } else {
+            printf("%s        hg\n", currDir);
+          }
+        }
 
-        if(cvs && !strcmp(subdirName, ".cvs"))
-          printf("%s        cvs\n", currDir);
+        if(cvs && !strcmp(subdirName, ".cvs")) {
+          if(group) {
+            queueNode* qnode = makeNode();
+            qnode->dir = currDir;
+            enqueue(cvsRepos, qnode);
+          } else {
+            printf("%s        cvs\n", currDir);
+          }
+        }
+      }
+
+    }
+  }
+
+  //if output should be grouped, print the repos in the queues
+  if(group) {
+  
+    if(git) {
+      printf("Git---------------------------\n");
+      while(!isEmpty(gitRepos)) {
+        printf("%s\n", dequeue(gitRepos)->dir);
       }
     }
+
+    if(hg) {
+
+      if(git)
+        printf("\n");
+
+      printf("Mercurial---------------------------\n");
+      while(!isEmpty(hgRepos)) {
+        printf("%s\n", dequeue(hgRepos)->dir);
+      }
+    }
+
+    if(cvs) {
+
+      if(git || hg)
+        printf("\n");
+
+      printf("CVS---------------------------\n");
+      while(!isEmpty(cvsRepos)) {
+        printf("%s\n", dequeue(cvsRepos)->dir);
+      }
+    }
+
   }
 
 }
@@ -188,30 +254,75 @@ void normalTraverse() {
   DIR* dir = NULL;
   struct dirent* sub = NULL;
 
+  //if output should be grouped, malloc queues
+  if(group) {
+    gitRepos = makeQueue();
+    hgRepos = makeQueue();
+    cvsRepos = makeQueue();
+  }
+
   while(!isEmpty(files)) {
-  
+ 
+    //printQueue(files); 
     queueNode* curr = dequeue(files);
 
     if((dir = opendir(curr->dir)) != NULL) {
+ 
+      char* lmao = "./Projects"; 
+      int look = 1;
+      for(int i = 0; i < 10; i++)
+        if(lmao[i] != (curr->dir)[i])
+          look = 0;
+
+      if(look)
+       printf("%s\n", curr->dir);
      
       while((sub = readdir(dir)) != NULL) {
         
+  
         char* subdirName = sub->d_name;
         int isVersionControl = 0;
-    
+  
+        if(look)
+          printf("child %s\n", subdirName);
+  
         //check if directory is a repository
         if(git && !strcmp(subdirName, ".git")) {
-          printf("%s        git\n", curr->dir);
+
+          if(group) {
+            queueNode* qnode = makeNode();
+            qnode->dir = curr->dir;
+            enqueue(gitRepos, qnode);
+          } else {
+            printf("%s        git\n", curr->dir);
+          }
+
           isVersionControl = 1;
         }
         
         if(hg && !strcmp(subdirName, ".hg")) {
-          printf("%s        hg\n", curr->dir);
+
+          if(group) {
+            queueNode* qnode = makeNode();
+            qnode->dir = curr->dir;
+            enqueue(hgRepos, qnode);
+          } else {
+            printf("%s        hg\n", curr->dir);
+          }
+
           isVersionControl = 1;
         }
 
         if(cvs && !strcmp(subdirName, ".cvs")) {
-          printf("%s        cvs\n", curr->dir);
+          
+          if(group) {
+            queueNode* qnode = makeNode();
+            qnode->dir = curr->dir;
+            enqueue(cvsRepos, qnode);
+          } else {
+            printf("%s        cvs\n", curr->dir);
+          }
+
           isVersionControl = 1;
         }
         
@@ -237,7 +348,42 @@ void normalTraverse() {
         }
       }
     }
-  }  
+	
+  }
+
+  //if output should be grouped, print the repos in the queues
+  if(group) {
+  
+    if(git) {
+      printf("Git---------------------------\n");
+      while(!isEmpty(gitRepos)) {
+        printf("%s\n", dequeue(gitRepos)->dir);
+      }
+    }
+
+    if(hg) {
+
+      if(git)
+        printf("\n");
+
+      printf("Mercurial---------------------------\n");
+      while(!isEmpty(hgRepos)) {
+        printf("%s\n", dequeue(hgRepos)->dir);
+      }
+    }
+
+    if(cvs) {
+
+      if(git || hg)
+        printf("\n");
+
+      printf("CVS---------------------------\n");
+      while(!isEmpty(cvsRepos)) {
+        printf("%s\n", dequeue(cvsRepos)->dir);
+      }
+    }
+
+  }
 
 }
 
@@ -329,6 +475,8 @@ void parseArguments(int argc, char** argv) {
           hg = 1;
         } else if(!strcmp(argv[j], "cvs")) {
           cvs = 1;
+        } else if(!strcmp(argv[j], "all")) {
+          git = hg = cvs = 1;
         }
       }
       

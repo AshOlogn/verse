@@ -1,5 +1,6 @@
 *.txt
 main
+queueTest.c
 
 # Prerequisites
 *.d

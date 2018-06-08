@@ -17,6 +17,10 @@ typedef struct queue {
 queueNode* makeNode();
 queue* makeQueue();
 
+//destructors
+freeQueueNode(queueNode* qn);
+freeQueue(queue* q);
+
 int isEmpty(queue* q);
 
 //queue operations
