@@ -333,6 +333,8 @@ void normalTraverse() {
           enqueue(files, subdirectory);
         }
       }
+
+      free(dir);
     }
 
     //free data associated with current node
