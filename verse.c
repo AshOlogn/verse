@@ -45,11 +45,11 @@ static queue* cvsRepos = NULL;
 //constants
 static const char* version = "verse version 1.0.0";
 
-static const char* usage = "usage: verse [--version | -v][--help | -h][--usage | -u][-s | -n]\n"
-                           "             [--group | -g][--all | -a]<command>";
+static const char* usage = "usage: verse [--version | -v][--help | -h][--usage | -u][--root | -r]<path>\n"
+                           "             [-s | -n][--group | -g][--all | -a]<command>";
 
-static const char* help = "usage: verse [--version | -v][--help | -h][--usage | -u][-s | -n]\n"
-                          "             [--group | -g][--all | -a]<command>\n\n"
+static const char* help = "usage: verse [--version | -v][--help | -h][--usage | -u][--root | -r]<path>\n"
+                          "             [-s | -n][--group | -g][--all | -a]<command>\n\n"
 
                           "Commands:\n"
                           "    version                 Get the version of the program that's running\n"
@@ -62,7 +62,8 @@ static const char* help = "usage: verse [--version | -v][--help | -h][--usage | 
                           "    --usage, -u             Get a compact representation of the command syntax (equivalent to usage command)\n"
                           "    --help, -h              Get usage information plus explanation of each command and flag option (equivalent to help command)\n" 
                           "    --group, -g             When searching, get the repository printout grouped by version control type\n"
-                          "    --all, -a               When searching, look for repos of all 3 supported version control systems (Git, Mercurial, CVS)";
+                          "    --all, -a               When searching, look for repos of all 3 supported version control systems (Git, Mercurial, CVS)\n"
+                          "    --root, -r              Begin searching for repos from a root defined by a relative path argument following the flag";
 
 
 //flag parsing data for getopt_long function
