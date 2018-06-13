@@ -24,6 +24,10 @@ static int version_command = 0;
 static int usage_command = 0;
 static int search_command = 0;
 
+//points to location of root from which repos must be searched (or NULL if root is . )
+static char* root = "."; 
+
+
 //flags
 static int shallow = 0;
 static int normal = 0;
@@ -68,10 +72,11 @@ struct option arguments[] = {
   {"usage", no_argument, 0, 'u'},
   {"group", no_argument, 0, 'g'},
   {"all", no_argument, 0, 'a'},
+  {"root", required_argument, 0, 'r'},
   {0, 0, 0, 0}
 };
 
-const char* shortFlags = "vVhHuUsSnNgGaA";
+const char* shortFlags = "vVhHuUsSnNgGaAr:R:";
 int argumentsIndex = 0;
 
 
@@ -121,7 +126,7 @@ void shallowTraverse() {
   //create queue to hold subdirectories
   queue* subdirectories = makeQueue();
   queueNode* node = makeNode();
-  node->dir = ".";
+  node->dir = root;
   enqueue(subdirectories, node);
 
   //if output should be grouped, malloc queues
@@ -248,7 +253,7 @@ void normalTraverse() {
   //initialize queue with current directory
   queue* files = makeQueue();
   queueNode* start = makeNode();
-  start->dir = getFreeableString(".");
+  start->dir = getFreeableString(root);
   enqueue(files, start);
 
   DIR* dir = NULL;
@@ -455,6 +460,8 @@ void parseArguments(int argc, char** argv) {
       case 'G': group = 1; break;
       case 'a': git = hg = cvs = 1; break;
       case 'A': git = hg = cvs = 1; break;
+      case 'r': root = optarg; break;
+      case 'R': root = optarg; break;
     }  
   }
 
