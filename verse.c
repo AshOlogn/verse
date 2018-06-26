@@ -80,6 +80,9 @@ struct option arguments[] = {
 const char* shortFlags = "vVhHuUsSnNgGaAr:R:";
 int argumentsIndex = 0;
 
+//keeps track of which number repo is being printed (for user selection)
+int repoNumber = 0;
+
 
 int main(int argc, char** argv) {
 
@@ -123,6 +126,9 @@ int main(int argc, char** argv) {
 
 //BFS traversal of directories to find all repositories
 void shallowTraverse() {
+
+  //set repoNumber to 0 before beginning to print
+  repoNumber = 0;
 
   //create queue to hold subdirectories
   queue* subdirectories = makeQueue();
@@ -185,7 +191,7 @@ void shallowTraverse() {
             qnode->dir = currDir;
             enqueue(gitRepos, qnode);
           } else {
-            printf("%s        git\n", currDir);
+            printf("%s        git   %d\n", currDir, repoNumber++);
           }
         }
         
@@ -195,7 +201,7 @@ void shallowTraverse() {
             qnode->dir = currDir;
             enqueue(hgRepos, qnode);
           } else {
-            printf("%s        hg\n", currDir);
+            printf("%s        hg   %d\n", currDir, repoNumber++);
           }
         }
 
@@ -205,7 +211,7 @@ void shallowTraverse() {
             qnode->dir = currDir;
             enqueue(cvsRepos, qnode);
           } else {
-            printf("%s        cvs\n", currDir);
+            printf("%s        cvs   %d\n", currDir, repoNumber++);
           }
         }
       }
@@ -216,10 +222,12 @@ void shallowTraverse() {
   //if output should be grouped, print the repos in the queues
   if(group) {
   
+    repoNumber = 0;
+
     if(git) {
       printf("Git---------------------------\n");
       while(!isEmpty(gitRepos)) {
-        printf("%s\n", dequeue(gitRepos)->dir);
+        printf("%s   %d\n", dequeue(gitRepos)->dir, repoNumber++);
       }
     }
 
@@ -230,7 +238,7 @@ void shallowTraverse() {
 
       printf("Mercurial---------------------------\n");
       while(!isEmpty(hgRepos)) {
-        printf("%s\n", dequeue(hgRepos)->dir);
+        printf("%s   %d\n", dequeue(hgRepos)->dir, repoNumber++);
       }
     }
 
@@ -241,7 +249,7 @@ void shallowTraverse() {
 
       printf("CVS---------------------------\n");
       while(!isEmpty(cvsRepos)) {
-        printf("%s\n", dequeue(cvsRepos)->dir);
+        printf("%s   %d\n", dequeue(cvsRepos)->dir, repoNumber++);
       }
     }
 
@@ -250,6 +258,9 @@ void shallowTraverse() {
 }
 
 void normalTraverse() {
+
+  //set repoNumber to 0 before beginning to print
+  repoNumber = 0;
 
   //initialize queue with current directory
   queue* files = makeQueue();
@@ -286,7 +297,7 @@ void normalTraverse() {
             qnode->dir = getFreeableString(curr->dir);
             enqueue(gitRepos, qnode);
           } else {
-            printf("%s        git\n", curr->dir);
+            printf("%s        git   %d\n", curr->dir, repoNumber++);
           }
 
           isVersionControl = 1;
@@ -299,7 +310,7 @@ void normalTraverse() {
             qnode->dir = getFreeableString(curr->dir);
             enqueue(hgRepos, qnode);
           } else {
-            printf("%s        hg\n", curr->dir);
+            printf("%s        hg   %d\n", curr->dir, repoNumber++);
           }
 
           isVersionControl = 1;
@@ -312,7 +323,7 @@ void normalTraverse() {
             qnode->dir = getFreeableString(curr->dir);
             enqueue(cvsRepos, qnode);
           } else {
-            printf("%s        cvs\n", curr->dir);
+            printf("%s        cvs   %d\n", curr->dir, repoNumber++);
           }
 
           isVersionControl = 1;
@@ -354,12 +365,14 @@ void normalTraverse() {
   //if output should be grouped, print the repos in the queues
   if(group) {
   
+    repoNumber = 0;
+
     if(git) {
       printf("Git---------------------------\n");
       queueNode* qn = NULL;
       while(!isEmpty(gitRepos)) {
         qn = dequeue(gitRepos);
-        printf("%s\n", qn->dir);
+        printf("%s   %d\n", qn->dir, repoNumber++);
         freeQueueNode(qn);
       }
 
@@ -375,7 +388,7 @@ void normalTraverse() {
       queueNode* qn = NULL;
       while(!isEmpty(hgRepos)) {
         qn = dequeue(hgRepos);
-        printf("%s\n", qn->dir);
+        printf("%s   %d\n", qn->dir, repoNumber++);
         freeQueueNode(qn);
       }
 
@@ -391,7 +404,7 @@ void normalTraverse() {
       queueNode* qn = NULL;
       while(!isEmpty(cvsRepos)) {
         qn = dequeue(cvsRepos);
-        printf("%s\n", qn->dir);
+        printf("%s   %d\n", qn->dir, repoNumber++);
         freeQueueNode(qn);
       }
 
