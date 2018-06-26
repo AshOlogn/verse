@@ -42,7 +42,7 @@ static queue* hgRepos = NULL;
 static queue* cvsRepos = NULL;
 
 
-//constants
+//documentation constants
 static const char* version = "verse version 1.0.0";
 
 static const char* usage = "usage: verse [--version | -v][--help | -h][--usage | -u][--root | -r]<path>\n"
@@ -83,11 +83,24 @@ int argumentsIndex = 0;
 //keeps track of which number repo is being printed (for user selection)
 int repoNumber = 0;
 
+//array of repos in the order that they're printed (for command access)
+char** allDirectories = NULL;
+int* repoType = NULL;
+
+const int GIT_TYPE = 0;
+const int HG_TYPE = 1;
+const int CVS_TYPE = 2;
+const int MAX_REPOS = 100;
+
 
 int main(int argc, char** argv) {
+  
 
   //process command-line arguments
   parseArguments(argc, argv);
+
+  allDirectories = (char**) malloc(sizeof(char*) * MAX_REPOS); 
+  repoType = (int*) malloc(sizeof(int) * MAX_REPOS);
 
   if(validateArguments()) {
 
@@ -127,7 +140,6 @@ int main(int argc, char** argv) {
 //BFS traversal of directories to find all repositories
 void shallowTraverse() {
 
-  //set repoNumber to 0 before beginning to print
   repoNumber = 0;
 
   //create queue to hold subdirectories
@@ -191,7 +203,10 @@ void shallowTraverse() {
             qnode->dir = currDir;
             enqueue(gitRepos, qnode);
           } else {
-            printf("%s        git   %d\n", currDir, repoNumber++);
+            printf("%s        git  %d\n", currDir, repoNumber);
+            allDirectories[repoNumber] = getFreeableString(currDir);
+            repoType[repoNumber] = GIT_TYPE;
+            repoNumber++;
           }
         }
         
@@ -201,7 +216,10 @@ void shallowTraverse() {
             qnode->dir = currDir;
             enqueue(hgRepos, qnode);
           } else {
-            printf("%s        hg   %d\n", currDir, repoNumber++);
+            printf("%s        hg   %d\n", currDir, repoNumber);
+            allDirectories[repoNumber] = getFreeableString(currDir);
+            repoType[repoNumber] = HG_TYPE;
+            repoNumber++;
           }
         }
 
@@ -211,7 +229,10 @@ void shallowTraverse() {
             qnode->dir = currDir;
             enqueue(cvsRepos, qnode);
           } else {
-            printf("%s        cvs   %d\n", currDir, repoNumber++);
+            printf("%s        cvs   %d\n", currDir, repoNumber);
+            allDirectories[repoNumber] = getFreeableString(currDir);
+            repoType[repoNumber] = CVS_TYPE;
+            repoNumber++;
           }
         }
       }
@@ -227,7 +248,11 @@ void shallowTraverse() {
     if(git) {
       printf("Git---------------------------\n");
       while(!isEmpty(gitRepos)) {
-        printf("%s   %d\n", dequeue(gitRepos)->dir, repoNumber++);
+        queueNode* gitNode = dequeue(gitRepos);      
+        printf("%s   %d\n", gitNode->dir, repoNumber);
+        allDirectories[repoNumber] = getFreeableString(gitNode->dir);
+        repoType[repoNumber] = GIT_TYPE;
+        repoNumber++;
       }
     }
 
@@ -238,7 +263,11 @@ void shallowTraverse() {
 
       printf("Mercurial---------------------------\n");
       while(!isEmpty(hgRepos)) {
-        printf("%s   %d\n", dequeue(hgRepos)->dir, repoNumber++);
+        queueNode* hgNode = dequeue(hgRepos);
+        printf("%s   %d\n", hgNode->dir, repoNumber);
+        allDirectories[repoNumber] = getFreeableString(hgNode->dir);
+        repoType[repoNumber] = HG_TYPE;
+        repoNumber++;
       }
     }
 
@@ -249,7 +278,11 @@ void shallowTraverse() {
 
       printf("CVS---------------------------\n");
       while(!isEmpty(cvsRepos)) {
-        printf("%s   %d\n", dequeue(cvsRepos)->dir, repoNumber++);
+        queueNode* cvsNode = dequeue(cvsRepos);
+        printf("%s   %d\n", cvsNode->dir, repoNumber);
+        allDirectories[repoNumber] = getFreeableString(cvsNode->dir);
+        repoType[repoNumber] = CVS_TYPE;
+        repoNumber++;
       }
     }
 
@@ -297,7 +330,10 @@ void normalTraverse() {
             qnode->dir = getFreeableString(curr->dir);
             enqueue(gitRepos, qnode);
           } else {
-            printf("%s        git   %d\n", curr->dir, repoNumber++);
+            printf("%s        git   %d\n", curr->dir, repoNumber);
+            allDirectories[repoNumber] = getFreeableString(curr->dir);
+            repoType[repoNumber] = GIT_TYPE;
+            repoNumber++;
           }
 
           isVersionControl = 1;
@@ -310,7 +346,10 @@ void normalTraverse() {
             qnode->dir = getFreeableString(curr->dir);
             enqueue(hgRepos, qnode);
           } else {
-            printf("%s        hg   %d\n", curr->dir, repoNumber++);
+            printf("%s        hg   %d\n", curr->dir, repoNumber);
+            allDirectories[repoNumber] = getFreeableString(curr->dir);
+            repoType[repoNumber] = HG_TYPE;
+            repoNumber++;
           }
 
           isVersionControl = 1;
@@ -323,7 +362,10 @@ void normalTraverse() {
             qnode->dir = getFreeableString(curr->dir);
             enqueue(cvsRepos, qnode);
           } else {
-            printf("%s        cvs   %d\n", curr->dir, repoNumber++);
+            printf("%s        cvs   %d\n", curr->dir, repoNumber);
+            allDirectories[repoNumber] = getFreeableString(curr->dir);
+            repoType[repoNumber] = CVS_TYPE;
+            repoNumber++;
           }
 
           isVersionControl = 1;
@@ -372,7 +414,10 @@ void normalTraverse() {
       queueNode* qn = NULL;
       while(!isEmpty(gitRepos)) {
         qn = dequeue(gitRepos);
-        printf("%s   %d\n", qn->dir, repoNumber++);
+        printf("%s   %d\n", qn->dir, repoNumber);
+        allDirectories[repoNumber] = getFreeableString(qn->dir);
+        repoType[repoNumber] = GIT_TYPE;
+        repoNumber++;
         freeQueueNode(qn);
       }
 
@@ -388,7 +433,10 @@ void normalTraverse() {
       queueNode* qn = NULL;
       while(!isEmpty(hgRepos)) {
         qn = dequeue(hgRepos);
-        printf("%s   %d\n", qn->dir, repoNumber++);
+        printf("%s   %d\n", qn->dir, repoNumber);
+        allDirectories[repoNumber] = getFreeableString(qn->dir);
+        repoType[repoNumber] = HG_TYPE;
+        repoNumber++;
         freeQueueNode(qn);
       }
 
@@ -404,7 +452,10 @@ void normalTraverse() {
       queueNode* qn = NULL;
       while(!isEmpty(cvsRepos)) {
         qn = dequeue(cvsRepos);
-        printf("%s   %d\n", qn->dir, repoNumber++);
+        printf("%s   %d\n", qn->dir, repoNumber);
+        allDirectories[repoNumber] = getFreeableString(qn->dir);
+        repoType[repoNumber];
+        repoNumber++;
         freeQueueNode(qn);
       }
 
