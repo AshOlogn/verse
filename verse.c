@@ -25,6 +25,8 @@ static int version_command = 0;
 static int usage_command = 0;
 static int search_command = 0;
 static int pull_command = 0;
+static int push_command = 0;
+static int commit_command = 0;
 
 //points to location of root from which repos must be searched (or NULL if root is . )
 static char* root = "."; 
@@ -127,7 +129,7 @@ int main(int argc, char** argv) {
         shallowTraverse();
       }
 
-    } else if(pull_command) {
+    } else if(pull_command || push_command || commit_command) {
 
 			//allocate memory for directory arrays
 			allDirectories = (char**) malloc(sizeof(char*) * MAX_REPOS); 
@@ -140,17 +142,54 @@ int main(int argc, char** argv) {
       }
 
 			//gather input specifying which repos should be pulled
-			char input[500];
-			char* ptr;
-			fgets(input, 499, stdin);
-			
+			const int MAX_LENGTH = 5; 
+			char input[MAX_LENGTH+2];
+			input[MAX_LENGTH+1] = 1;
 
-			int len = 0;
-			int statusFlag = 1;
-			int* repoNumbers = parseRepoSpecifiers(input, MAX_REPOS, &len, &statusFlag);
-			for(int i = 0; i < len; i++)
-				printf("%d\n", repoNumbers[i]);
+			char* ptr;
+			int done = 0;
+
+			const char* commandName = (pull_command) ? "pull" :
+																(push_command) ? "push" :
+																"commit";
+
+			while(!done) {
+
+				//prompt for a list of numbers
+				printf("Enter a list of space-separated numbers specifying which repos you want to %s:\n", commandName);
+				fgets(input, MAX_LENGTH+2, stdin);
+
+				handlePotentialBufferOveflow(input, MAX_LENGTH+2);
+
+				int len = 0;
+				int statusFlag = 1;
+				int* repoNumbers = parseRepoSpecifiers(input, MAX_REPOS, &len, &statusFlag);
+				
+				if(statusFlag) {
+
+					char response[3];
+					response[2] = 1;
+
+					printf("Error in input, must be a list of space-separated numbers (no commas)\n");
+					printf("Enter y to re-input the repo numbers or anything else not starting with y to quit:");
+					fgets(response, 3, stdin);
+
+					handlePotentialBufferOveflow(input, MAX_LENGTH+2);
+					if(response[0] != 'y' && response[0] != 'Y') {
+						done = 1;
+					}
+
+				} else {
+					done = 1;
+					for(int i = 0; i < len; i++)
+						printf("%d\n", repoNumbers[i]);
+					//replace this with actual commands ^
+				}
+			}
+
+
 		}
+			
 
   }
 
@@ -546,6 +585,8 @@ int validateArguments() {
   commandCount = (usage_command) ? commandCount+1 : commandCount;
   commandCount = (search_command) ? commandCount+1 : commandCount;
 	commandCount = (pull_command) ? commandCount+1 : commandCount;
+	commandCount = (push_command) ? commandCount+1 : commandCount;
+	commandCount = (commit_command) ? commandCount+1 : commandCount;
 
   if(commandCount == 0) {
     printf("No commands were specified. Please specify exactly 1 command.\n");
@@ -612,6 +653,14 @@ void parseArguments(int argc, char** argv) {
       return;
     } else if(strcmp(argv[i], "pull") == 0) {
 			pull_command = 1;
+			parseCommandParameters(i+1, argc, argv);
+			return;
+		} else if(strcmp(argv[i], "push") == 0) {
+			push_command = 1;
+			parseCommandParameters(i+1, argc, argv);
+			return;
+		} else if(strcmp(argv[i], "commit") == 0) {
+			commit_command = 1;
 			parseCommandParameters(i+1, argc, argv);
 			return;
 		}

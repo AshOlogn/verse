@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -8,6 +9,22 @@ char* getFreeableString(char* str) {
   strncpy(ptr, str, len+1);
   ptr[len] = '\0';
   return ptr;
+}
+
+int checkIfBufferOverflow(char* input, int maxLen) {
+	return input[maxLen-1] == '\0' && input[maxLen-2] != '\n';
+}
+
+void clearInputBuffer() {
+	int ch;
+	while((ch = fgetc(stdin)) != '\n' && ch != EOF);
+}
+
+void handlePotentialBufferOveflow(char* input, int maxLen) {
+	if(checkIfBufferOverflow(input, maxLen)) {
+		input[maxLen] = '\n';
+		clearInputBuffer();
+	}
 }
 
 int* parseRepoSpecifiers(char* str, int maxRepos, int* len, int* statusFlag) {
