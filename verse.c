@@ -7,11 +7,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "queue.h"
+#include "util.h"
 
 //forward declarations
 void parseArguments(int argc, char** argv);
+void parseCommandParameters(int position, int argc, char** argv);
 int validateArguments();
-char* getFreeableString(char* str);
 void printFlagsAndCommands();
 
 void shallowTraverse();
@@ -23,10 +24,10 @@ static int help_command = 0;
 static int version_command = 0;
 static int usage_command = 0;
 static int search_command = 0;
+static int pull_command = 0;
 
 //points to location of root from which repos must be searched (or NULL if root is . )
 static char* root = "."; 
-
 
 //flags
 static int shallow = 0;
@@ -55,7 +56,8 @@ static const char* help = "usage: verse [--version | -v][--help | -h][--usage | 
                           "    version                 Get the version of the program that's running\n"
                           "    usage                   Get a compact representation of the command syntax\n"
                           "    help                    Get usage information plus explanation of each command and flag option\n"
-                          "    search                  Find version control repositories in all subdirectories, including this one\n\n"
+                          "    search                  Find version control repositories in all subdirectories, including this one\n"
+                          "    push                    Push the repositories selected from a numbered list of all repositories returned by search\n\n"
 
                           "Flags:\n"
                           "    --version, -v           Get the version of the program that is running (equivalent to version command)\n"
@@ -95,12 +97,8 @@ const int MAX_REPOS = 100;
 
 int main(int argc, char** argv) {
   
-
   //process command-line arguments
   parseArguments(argc, argv);
-
-  allDirectories = (char**) malloc(sizeof(char*) * MAX_REPOS); 
-  repoType = (int*) malloc(sizeof(int) * MAX_REPOS);
 
   if(validateArguments()) {
 
@@ -129,7 +127,30 @@ int main(int argc, char** argv) {
         shallowTraverse();
       }
 
-    }
+    } else if(pull_command) {
+
+			//allocate memory for directory arrays
+			allDirectories = (char**) malloc(sizeof(char*) * MAX_REPOS); 
+  		repoType = (int*) malloc(sizeof(int) * MAX_REPOS);
+			
+			if(normal) {
+        normalTraverse();
+      } else {
+        shallowTraverse();
+      }
+
+			//gather input specifying which repos should be pulled
+			char input[500];
+			char* ptr;
+			fgets(input, 499, stdin);
+			
+
+			int len = 0;
+			int statusFlag = 1;
+			int* repoNumbers = parseRepoSpecifiers(input, MAX_REPOS, &len, &statusFlag);
+			for(int i = 0; i < len; i++)
+				printf("%d\n", repoNumbers[i]);
+		}
 
   }
 
@@ -203,9 +224,12 @@ void shallowTraverse() {
             qnode->dir = currDir;
             enqueue(gitRepos, qnode);
           } else {
-            printf("%s        git  %d\n", currDir, repoNumber);
-            allDirectories[repoNumber] = getFreeableString(currDir);
-            repoType[repoNumber] = GIT_TYPE;
+            printf("%s        git  %d\n", currDir, repoNumber+1);
+
+						if(pull_command) {
+							allDirectories[repoNumber] = getFreeableString(currDir);
+							repoType[repoNumber] = GIT_TYPE;
+						}
             repoNumber++;
           }
         }
@@ -216,9 +240,12 @@ void shallowTraverse() {
             qnode->dir = currDir;
             enqueue(hgRepos, qnode);
           } else {
-            printf("%s        hg   %d\n", currDir, repoNumber);
-            allDirectories[repoNumber] = getFreeableString(currDir);
-            repoType[repoNumber] = HG_TYPE;
+            printf("%s        hg   %d\n", currDir, repoNumber+1);
+            
+						if(pull_command) {
+							allDirectories[repoNumber] = getFreeableString(currDir);
+							repoType[repoNumber] = HG_TYPE;
+						}
             repoNumber++;
           }
         }
@@ -229,12 +256,16 @@ void shallowTraverse() {
             qnode->dir = currDir;
             enqueue(cvsRepos, qnode);
           } else {
-            printf("%s        cvs   %d\n", currDir, repoNumber);
-            allDirectories[repoNumber] = getFreeableString(currDir);
-            repoType[repoNumber] = CVS_TYPE;
+            printf("%s        cvs   %d\n", currDir, repoNumber+1);
+
+						if(pull_command) {
+							allDirectories[repoNumber] = getFreeableString(currDir);
+            	repoType[repoNumber] = CVS_TYPE;
+						}
             repoNumber++;
           }
         }
+
       }
 
     }
@@ -249,9 +280,12 @@ void shallowTraverse() {
       printf("Git---------------------------\n");
       while(!isEmpty(gitRepos)) {
         queueNode* gitNode = dequeue(gitRepos);      
-        printf("%s   %d\n", gitNode->dir, repoNumber);
-        allDirectories[repoNumber] = getFreeableString(gitNode->dir);
-        repoType[repoNumber] = GIT_TYPE;
+        printf("%s   %d\n", gitNode->dir, repoNumber+1);
+
+				if(pull_command) {
+					allDirectories[repoNumber] = getFreeableString(gitNode->dir);
+        	repoType[repoNumber] = GIT_TYPE;
+				}
         repoNumber++;
       }
     }
@@ -264,9 +298,12 @@ void shallowTraverse() {
       printf("Mercurial---------------------------\n");
       while(!isEmpty(hgRepos)) {
         queueNode* hgNode = dequeue(hgRepos);
-        printf("%s   %d\n", hgNode->dir, repoNumber);
-        allDirectories[repoNumber] = getFreeableString(hgNode->dir);
-        repoType[repoNumber] = HG_TYPE;
+        printf("%s   %d\n", hgNode->dir, repoNumber+1);
+
+				if(pull_command) {
+					allDirectories[repoNumber] = getFreeableString(hgNode->dir);
+        	repoType[repoNumber] = HG_TYPE;
+				}
         repoNumber++;
       }
     }
@@ -279,9 +316,12 @@ void shallowTraverse() {
       printf("CVS---------------------------\n");
       while(!isEmpty(cvsRepos)) {
         queueNode* cvsNode = dequeue(cvsRepos);
-        printf("%s   %d\n", cvsNode->dir, repoNumber);
-        allDirectories[repoNumber] = getFreeableString(cvsNode->dir);
-        repoType[repoNumber] = CVS_TYPE;
+        printf("%s   %d\n", cvsNode->dir, repoNumber+1);
+
+				if(pull_command) {
+					allDirectories[repoNumber] = getFreeableString(cvsNode->dir);
+        	repoType[repoNumber] = CVS_TYPE;
+				}
         repoNumber++;
       }
     }
@@ -330,9 +370,12 @@ void normalTraverse() {
             qnode->dir = getFreeableString(curr->dir);
             enqueue(gitRepos, qnode);
           } else {
-            printf("%s        git   %d\n", curr->dir, repoNumber);
-            allDirectories[repoNumber] = getFreeableString(curr->dir);
-            repoType[repoNumber] = GIT_TYPE;
+            printf("%s        git   %d\n", curr->dir, repoNumber+1);
+
+						if(pull_command) {
+							allDirectories[repoNumber] = getFreeableString(curr->dir);
+            	repoType[repoNumber] = GIT_TYPE;
+						}
             repoNumber++;
           }
 
@@ -346,9 +389,12 @@ void normalTraverse() {
             qnode->dir = getFreeableString(curr->dir);
             enqueue(hgRepos, qnode);
           } else {
-            printf("%s        hg   %d\n", curr->dir, repoNumber);
-            allDirectories[repoNumber] = getFreeableString(curr->dir);
-            repoType[repoNumber] = HG_TYPE;
+            printf("%s        hg   %d\n", curr->dir, repoNumber+1);
+
+						if(pull_command) {
+							allDirectories[repoNumber] = getFreeableString(curr->dir);
+            	repoType[repoNumber] = HG_TYPE;
+						}
             repoNumber++;
           }
 
@@ -362,9 +408,12 @@ void normalTraverse() {
             qnode->dir = getFreeableString(curr->dir);
             enqueue(cvsRepos, qnode);
           } else {
-            printf("%s        cvs   %d\n", curr->dir, repoNumber);
-            allDirectories[repoNumber] = getFreeableString(curr->dir);
-            repoType[repoNumber] = CVS_TYPE;
+            printf("%s        cvs   %d\n", curr->dir, repoNumber+1);
+
+						if(pull_command) {
+							allDirectories[repoNumber] = getFreeableString(curr->dir);
+            	repoType[repoNumber] = CVS_TYPE;
+						}
             repoNumber++;
           }
 
@@ -414,9 +463,12 @@ void normalTraverse() {
       queueNode* qn = NULL;
       while(!isEmpty(gitRepos)) {
         qn = dequeue(gitRepos);
-        printf("%s   %d\n", qn->dir, repoNumber);
-        allDirectories[repoNumber] = getFreeableString(qn->dir);
-        repoType[repoNumber] = GIT_TYPE;
+        printf("%s   %d\n", qn->dir, repoNumber+1);
+
+				if(pull_command) {
+					allDirectories[repoNumber] = getFreeableString(qn->dir);
+        	repoType[repoNumber] = GIT_TYPE;
+				}
         repoNumber++;
         freeQueueNode(qn);
       }
@@ -433,9 +485,12 @@ void normalTraverse() {
       queueNode* qn = NULL;
       while(!isEmpty(hgRepos)) {
         qn = dequeue(hgRepos);
-        printf("%s   %d\n", qn->dir, repoNumber);
-        allDirectories[repoNumber] = getFreeableString(qn->dir);
-        repoType[repoNumber] = HG_TYPE;
+        printf("%s   %d\n", qn->dir, repoNumber+1);
+
+				if(pull_command) {
+					allDirectories[repoNumber] = getFreeableString(qn->dir);
+        	repoType[repoNumber] = HG_TYPE;
+				}
         repoNumber++;
         freeQueueNode(qn);
       }
@@ -452,9 +507,12 @@ void normalTraverse() {
       queueNode* qn = NULL;
       while(!isEmpty(cvsRepos)) {
         qn = dequeue(cvsRepos);
-        printf("%s   %d\n", qn->dir, repoNumber);
-        allDirectories[repoNumber] = getFreeableString(qn->dir);
-        repoType[repoNumber];
+        printf("%s   %d\n", qn->dir, repoNumber+1);
+
+				if(pull_command) {
+					allDirectories[repoNumber] = getFreeableString(qn->dir);
+        	repoType[repoNumber];
+				}
         repoNumber++;
         freeQueueNode(qn);
       }
@@ -487,6 +545,7 @@ int validateArguments() {
   commandCount = (version_command) ? commandCount+1 : commandCount;
   commandCount = (usage_command) ? commandCount+1 : commandCount;
   commandCount = (search_command) ? commandCount+1 : commandCount;
+	commandCount = (pull_command) ? commandCount+1 : commandCount;
 
   if(commandCount == 0) {
     printf("No commands were specified. Please specify exactly 1 command.\n");
@@ -539,6 +598,8 @@ void parseArguments(int argc, char** argv) {
   //parse command (should only be 1)
   for(int i = optind; i < argc; i++) {
 
+		printf("command: %s\n", argv[i]);
+
     if(strcmp(argv[i], "version") == 0) {
       version_command = 1;
     } else if(strcmp(argv[i], "help") == 0) {
@@ -546,40 +607,38 @@ void parseArguments(int argc, char** argv) {
     } else if(strcmp(argv[i], "usage") == 0) {
       usage_command = 1;
     } else if(strcmp(argv[i], "search") == 0) {
-
       search_command = 1;
-
-      for(int j = i+1; j < argc; j++) {       
-        if(!strcmp(argv[j], "git")) {
-          git = 1;
-        } else if(!strcmp(argv[j], "hg")) {
-          hg = 1;
-        } else if(!strcmp(argv[j], "cvs")) {
-          cvs = 1;
-        } else if(!strcmp(argv[j], "all")) {
-          git = hg = cvs = 1;
-        }
-      }
-      
-      //if no version control option flags are set, default is only git
-      if(!git && !hg && !cvs) { 
-        git = 1;
-        hg = cvs = 0;
-      }
-      
+			parseCommandParameters(i+1, argc, argv);
       return;
-    }
+    } else if(strcmp(argv[i], "pull") == 0) {
+			pull_command = 1;
+			parseCommandParameters(i+1, argc, argv);
+			return;
+		}
   }
 
 }
 
-//returns equivalent of string literal allocated on heap (so it can be freed)
-char* getFreeableString(char* str) {
-  int len = strlen(str);
-  char* ptr = (char*) malloc(sizeof(char)*(len+1));
-  strncpy(ptr, str, len+1);
-  ptr[len] = '\0';
-  return ptr;
+//parses the arguments to the search, pull commands
+void parseCommandParameters(int position, int argc, char** argv) {
+
+	for(int j = position+1; j < argc; j++) {       
+		if(!strcmp(argv[j], "git")) {
+			git = 1;
+		} else if(!strcmp(argv[j], "hg")) {
+			hg = 1;
+		} else if(!strcmp(argv[j], "cvs")) {
+			cvs = 1;
+		} else if(!strcmp(argv[j], "all")) {
+			git = hg = cvs = 1;
+		}
+	}
+
+	//if no version control option flags are set, default is only git
+	if(!git && !hg && !cvs) { 
+		git = 1;
+		hg = cvs = 0;
+	}
 }
 
 
