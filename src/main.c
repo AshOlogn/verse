@@ -37,12 +37,10 @@ static int normal = 0;
 
 static int git = 0;
 static int hg = 0;
-static int cvs = 0;
 
 static int group = 0;
 static queue* gitRepos = NULL;
 static queue* hgRepos = NULL;
-static queue* cvsRepos = NULL;
 
 
 //documentation constants
@@ -66,7 +64,7 @@ static const char* help = "usage: verse [--version | -v][--help | -h][--usage | 
                           "    --usage, -u             Get a compact representation of the command syntax (equivalent to usage command)\n"
                           "    --help, -h              Get usage information plus explanation of each command and flag option (equivalent to help command)\n"
                           "    --group, -g             When searching, get the repository printout grouped by version control type\n"
-                          "    --all, -a               When searching, look for repos of all 3 supported version control systems (Git, Mercurial, CVS)\n"
+                          "    --all, -a               When searching, look for repos of both supported version control systems (Git and Mercurial)\n"
                           "    --root, -r              Begin searching for repos from a root defined by a relative path argument following the flag";
 
 
@@ -93,8 +91,7 @@ char** allDirectories = NULL;
 //represents version control system type
 typedef enum VC_TYPE {
 	GIT_TYPE,
-	HG_TYPE,
-	CVS_TYPE
+	HG_TYPE
 } VC_TYPE;
 
 VC_TYPE* repoType = NULL;
@@ -115,6 +112,7 @@ int main(int argc, char** argv) {
 
   if(validateArguments()) {
 
+		printf("Invalid arguments and/or flags. Type verse --help or verse --usage for information on how to use the tool\n");
     return 1;
 
   } else {
@@ -176,7 +174,6 @@ int main(int argc, char** argv) {
 				fgets(input, MAX_LENGTH+2, stdin);
 
 				handlePotentialBufferOveflow(input, MAX_LENGTH+2);
-
 				repoNumbers = parseRepoSpecifiers(input, MAX_REPOS, &len, &statusFlag);
 
 				if(statusFlag) {
@@ -207,7 +204,6 @@ int main(int argc, char** argv) {
 
 			int isFirstGit = 1;
 			int isFirstHg = 1;
-			int isFirstCVS = 1;
 
 			for(int i = 0; i < len; i++) {
 
@@ -216,6 +212,8 @@ int main(int argc, char** argv) {
 				VC_TYPE vcType = repoType[repoNumbers[i]];
 
 				if(push_command) {
+
+					char* pushCommandText = (char*) malloc(sizeof(char) * MAX_COMMAND_LENGTH);
 
 					switch(vcType) {
 
@@ -227,41 +225,50 @@ int main(int argc, char** argv) {
 								isFirstGit = 0;
 							}
 
-							char* pushCommandText = (char*) malloc(sizeof(char) * MAX_COMMAND_LENGTH);
 							snprintf(pushCommandText, MAX_COMMAND_LENGTH, "cd %s && git push origin master", directory);
 							system(pushCommandText);
-
-							//free command memory
-							free(pushCommandText);
 							break;
 						}
 
-						case HG_TYPE: break;
-						case CVS_TYPE: break;
+						case HG_TYPE: {
+							snprintf(pushCommandText, MAX_COMMAND_LENGTH, "cd %s && hg push", directory);
+							system(pushCommandText);	
+							break;
+						}
+
 						default: break;
 					}
+
+					//free command memory
+					free(pushCommandText);
 
 				}	else if(pull_command) {
 
+					char* pullCommandText = (char*) malloc(sizeof(char) * MAX_COMMAND_LENGTH);
+
 					switch(vcType) {
 
-						case GIT_TYPE: {
-
-							char* pullCommandText = (char*) malloc(sizeof(char) * MAX_COMMAND_LENGTH);
+						case GIT_TYPE: {	
 							snprintf(pullCommandText, MAX_COMMAND_LENGTH, "cd %s && git pull origin master", directory);
 							system(pullCommandText);
-
-							//free command memory
-							free(pullCommandText);
 							break;
 						}
 
-						case HG_TYPE: break;
-						case CVS_TYPE: break;
+						case HG_TYPE: {
+							snprintf(pullCommandText, MAX_COMMAND_LENGTH, "cd %s && hg pull", directory);
+							system(pullCommandText);
+							break;
+						}
+
 						default: break;
 					}
 
+					//free command memory
+					free(pullCommandText);
+
 				}	else if(commit_command) {
+
+					char* commitCommandText = (char*) malloc(sizeof(char) * MAX_COMMAND_LENGTH);
 
 					switch(vcType) {
 
@@ -310,18 +317,24 @@ int main(int argc, char** argv) {
 							}
 
 							//execute commit statement
-							char* commitCommandText = (char*) malloc(sizeof(char) * MAX_COMMAND_LENGTH);
 							snprintf(commitCommandText, MAX_COMMAND_LENGTH, "cd %s && git commit -m %s", directory, commitMessageText);
 							system(commitCommandText);
 
-							//free command memory
-							free(commitCommandText);
 							break;
 						}
-						case HG_TYPE: break;
-						case CVS_TYPE: break;
+
+						case HG_TYPE: {
+
+							//much simpler than Git since Hg handles user input completely
+							snprintf(commitCommandText, MAX_COMMAND_LENGTH, "cd %s && hg commit", directory);
+							system(commitCommandText);
+						}
+
 						default: break;
 					}
+
+					//free command memory
+					free(commitCommandText);
 				}
 
 				//free directory string
@@ -352,7 +365,6 @@ void shallowTraverse() {
   if(group) {
     gitRepos = makeQueue();
     hgRepos = makeQueue();
-    cvsRepos = makeQueue();
   }
 
   //check each subdirectory in the root
@@ -365,7 +377,7 @@ void shallowTraverse() {
 
       char* subdirName = sub->d_name;
       if((sub->d_type == DT_DIR) && strcmp(subdirName, ".") && strcmp(subdirName, "..") &&
-         strcmp(subdirName, ".git") && strcmp(subdirName, ".hg") && strcmp(subdirName, ".cvs")) {
+         strcmp(subdirName, ".git") && strcmp(subdirName, ".hg")) {
 
         //add subdirectory to the queue
         int len = strlen(subdirName);
@@ -429,22 +441,6 @@ void shallowTraverse() {
           }
         }
 
-        if(cvs && !strcmp(subdirName, ".cvs")) {
-          if(group) {
-            queueNode* qnode = makeNode();
-            qnode->dir = currDir;
-            enqueue(cvsRepos, qnode);
-          } else {
-            printf("%s        cvs   %d\n", currDir, repoNumber+1);
-
-						if(pull_command || push_command || commit_command) {
-							allDirectories[repoNumber] = getFreeableString(currDir);
-            	repoType[repoNumber] = CVS_TYPE;
-						}
-            repoNumber++;
-          }
-        }
-
       }
 
     }
@@ -488,24 +484,6 @@ void shallowTraverse() {
       }
     }
 
-    if(cvs) {
-
-      if(git || hg)
-        printf("\n");
-
-      printf("CVS---------------------------\n");
-      while(!isEmpty(cvsRepos)) {
-        queueNode* cvsNode = dequeue(cvsRepos);
-        printf("%s   %d\n", cvsNode->dir, repoNumber+1);
-
-				if(pull_command || push_command || commit_command) {
-					allDirectories[repoNumber] = getFreeableString(cvsNode->dir);
-        	repoType[repoNumber] = CVS_TYPE;
-				}
-        repoNumber++;
-      }
-    }
-
   }
 
 }
@@ -528,7 +506,6 @@ void normalTraverse() {
   if(group) {
     gitRepos = makeQueue();
     hgRepos = makeQueue();
-    cvsRepos = makeQueue();
   }
 
   while(!isEmpty(files)) {
@@ -574,25 +551,6 @@ void normalTraverse() {
 						if(pull_command || push_command || commit_command) {
 							allDirectories[repoNumber] = getFreeableString(curr->dir);
             	repoType[repoNumber] = HG_TYPE;
-						}
-            repoNumber++;
-          }
-
-          isVersionControl = 1;
-        }
-
-        if(cvs && !strcmp(subdirName, ".cvs")) {
-
-          if(group) {
-            queueNode* qnode = makeNode();
-            qnode->dir = getFreeableString(curr->dir);
-            enqueue(cvsRepos, qnode);
-          } else {
-            printf("%s        cvs   %d\n", curr->dir, repoNumber+1);
-
-						if(pull_command || push_command || commit_command) {
-							allDirectories[repoNumber] = getFreeableString(curr->dir);
-            	repoType[repoNumber] = CVS_TYPE;
 						}
             repoNumber++;
           }
@@ -678,28 +636,6 @@ void normalTraverse() {
       freeQueue(hgRepos);
     }
 
-    if(cvs) {
-
-      if(git || hg)
-        printf("\n");
-
-      printf("CVS---------------------------\n");
-      queueNode* qn = NULL;
-      while(!isEmpty(cvsRepos)) {
-        qn = dequeue(cvsRepos);
-        printf("%s   %d\n", qn->dir, repoNumber+1);
-
-				if(pull_command || push_command || commit_command) {
-					allDirectories[repoNumber] = getFreeableString(qn->dir);
-        	repoType[repoNumber];
-				}
-        repoNumber++;
-        freeQueueNode(qn);
-      }
-
-      freeQueue(cvsRepos);
-    }
-
   }
 
 }
@@ -764,8 +700,8 @@ void parseArguments(int argc, char** argv) {
       case 'N': normal = 1; break;
       case 'g': group = 1; break;
       case 'G': group = 1; break;
-      case 'a': git = hg = cvs = 1; break;
-      case 'A': git = hg = cvs = 1; break;
+      case 'a': git = hg = 1; break;
+      case 'A': git = hg = 1; break;
       case 'r': root = optarg; break;
       case 'R': root = optarg; break;
     }
@@ -818,17 +754,15 @@ void parseCommandParameters(int position, int argc, char** argv) {
 			git = 1;
 		} else if(!strcmp(argv[j], "hg")) {
 			hg = 1;
-		} else if(!strcmp(argv[j], "cvs")) {
-			cvs = 1;
 		} else if(!strcmp(argv[j], "all")) {
-			git = hg = cvs = 1;
+			git = hg = 1;
 		}
 	}
 
 	//if no version control option flags are set, default is only git
-	if(!git && !hg && !cvs) {
+	if(!git && !hg) {
 		git = 1;
-		hg = cvs = 0;
+		hg = 0;
 	}
 }
 
@@ -846,11 +780,10 @@ void printFlagsAndCommands() {
           "group = %d\n\n"
 
           "git = %d\n"
-          "hg = %d\n"
-          "cvs = %d\n",
+          "hg = %d\n",
 
           help_command, version_command, search_command, usage_command,
-          shallow, normal, group, git, hg, cvs);
+          shallow, normal, group, git, hg);
 }
 
 
