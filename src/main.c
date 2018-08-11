@@ -27,6 +27,7 @@ static int search_command = 0;
 static int pull_command = 0;
 static int push_command = 0;
 static int commit_command = 0;
+static int add_command = 0;
 
 //points to location of root from which repos must be searched (or NULL if root is . )
 static char* root = ".";
@@ -57,7 +58,11 @@ static const char* help = "usage: verse [--version | -v][--help | -h][--usage | 
                           "    usage                   Get a compact representation of the command syntax\n"
                           "    help                    Get usage information plus explanation of each command and flag option\n"
                           "    search                  Find version control repositories in all subdirectories, including this one\n"
-                          "    push                    Push the repositories selected from a numbered list of all repositories returned by search\n\n"
+                          "    push                    Push the repositories selected from a numbered list of all repositories returned by search\n"
+                          "    pull                    Pull the repositories selected from a numbered list of all repositories returned by search\n"													
+													"    add                     Add files from the repositories selected from a list returned by search\n"
+                          "    commit                  Commit the repositories selected from a numbered list of all repositories returned by search\n\n"													
+
 
                           "Flags:\n"
                           "    --version, -v           Get the version of the program that is running (equivalent to version command)\n"
@@ -105,6 +110,9 @@ const unsigned int MAX_COMMAND_LENGTH = 1000;
 //maximum length of a commit message
 const unsigned int MAX_COMMIT_MESSAGE_LENGTH = 500;
 
+//maximum length of add command
+const unsigned int MAX_ADD_MESSAGE_LENGTH = 500;
+
 int main(int argc, char** argv) {
 
   //process command-line arguments
@@ -138,7 +146,7 @@ int main(int argc, char** argv) {
         shallowTraverse();
       }
 
-    } else if(pull_command || push_command || commit_command) {
+    } else if(pull_command || push_command || commit_command || add_command) {
 
 			//allocate memory for directory arrays
 			allDirectories = (char**) malloc(sizeof(char*) * MAX_REPOS);
@@ -160,7 +168,8 @@ int main(int argc, char** argv) {
 
 			const char* commandName = (pull_command) ? "pull" :
 																(push_command) ? "push" :
-																"commit";
+																(commit_command) ? "commit" :
+																"add";
 
 			//variables used to parse
 			int* repoNumbers = NULL;
@@ -335,6 +344,62 @@ int main(int argc, char** argv) {
 
 					//free command memory
 					free(commitCommandText);
+
+				} else if(add_command) {
+
+					char* addCommandText = (char*) malloc(sizeof(char) * MAX_COMMAND_LENGTH);
+					char addMessageText[MAX_ADD_MESSAGE_LENGTH+2];
+
+					int done = 0;
+					while(!done) {
+
+						addMessageText[MAX_ADD_MESSAGE_LENGTH+1] = 1;
+						printf("Enter the add command arguments: ");
+						fgets(addMessageText, MAX_ADD_MESSAGE_LENGTH+2, stdin);
+
+						if(checkIfBufferOverflow(addMessageText, MAX_ADD_MESSAGE_LENGTH+2)) {
+
+							printf("The input arguments exceeded the 500-character limit. The following is the truncated input:\n");
+							printf("%s\n", addMessageText);
+							printf("Enter y to add with the above arguments or anything else not beginning with y to retype it: ");
+
+							//get the yes or input
+							char response[3];
+							response[2] = 1;
+							fgets(response, 3, stdin);
+
+							if(response[0] == 'y' || response[0] == 'Y') {
+								done = 1;
+							}
+
+						} else {
+
+							printf("The following are the input add arguments:\n");
+							printf("%s\n", addMessageText);
+							printf("Enter y to add with the above arguments or anything else not beginning with y to retype it: ");
+
+							//get the yes or input
+							char response[3];
+							response[2] = 1;
+							fgets(response, 3, stdin);
+
+							if(response[0] == 'y' || response[0] == 'Y') {
+								done = 1;
+							}
+						}
+					}
+
+					//execute command
+					if(vcType == GIT_TYPE) {
+						snprintf(addMessageText, MAX_COMMAND_LENGTH, "cd %s && git add %s", directory, addCommandText);
+					} else {
+						snprintf(addMessageText, MAX_COMMAND_LENGTH, "cd %s && hg add %s", directory, addCommandText);
+					}
+
+					system(addMessageText);
+
+					//free command string
+					free(addMessageText);				
 				}
 
 				//free directory string
@@ -664,6 +729,7 @@ int validateArguments() {
 	commandCount = (pull_command) ? commandCount+1 : commandCount;
 	commandCount = (push_command) ? commandCount+1 : commandCount;
 	commandCount = (commit_command) ? commandCount+1 : commandCount;
+	commandCount = (add_command) ? commandCount+1 : commandCount;
 
   if(commandCount == 0) {
     printf("No commands were specified. Please specify exactly 1 command.\n");
@@ -740,9 +806,12 @@ void parseArguments(int argc, char** argv) {
 			commit_command = 1;
 			parseCommandParameters(i+1, argc, argv);
 			return;
+		} else if(strcmp(argv[i], "add") == 0) {
+			add_command = 1;
+			parseCommandParameters(i+1, argc, argv);
+			return;
 		}
   }
-
 }
 
 //parses the arguments to the search, pull commands
