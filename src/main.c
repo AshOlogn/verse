@@ -8,43 +8,13 @@
 #include <sys/stat.h>
 #include "queue.h"
 #include "util.h"
-
-//forward declarations
-void parseArguments(int argc, char** argv);
-void parseCommandParameters(int position, int argc, char** argv);
-int validateArguments();
-void printFlagsAndCommands();
-
-void shallowTraverse();
-void normalTraverse();
-void deepTraverse();
-
-//represents the various commands
-static int help_command = 0;
-static int version_command = 0;
-static int usage_command = 0;
-static int search_command = 0;
-static int pull_command = 0;
-static int push_command = 0;
-static int commit_command = 0;
-static int add_command = 0;
-
-//points to location of root from which repos must be searched (or NULL if root is . )
-static char* root = ".";
-
-//flags
-static int shallow = 0;
-static int normal = 0;
-
-static int git = 0;
-static int hg = 0;
-
-static int group = 0;
-static queue* gitRepos = NULL;
-static queue* hgRepos = NULL;
+#include "main.h"
 
 
-//documentation constants
+////////////////////////////////
+//////   Documentation   ///////
+////////////////////////////////
+
 static const char* version = "verse version 1.0.0";
 
 static const char* usage = "usage: verse [--version | -v][--help | -h][--usage | -u][--root | -r]<path>\n"
@@ -73,6 +43,34 @@ static const char* help = "usage: verse [--version | -v][--help | -h][--usage | 
                           "    --root, -r              Begin searching for repos from a root defined by a relative path argument following the flag";
 
 
+////////////////////////////////
+//////      Controls     ///////
+////////////////////////////////
+
+//type that represents the various commands
+static int help_command = 0;
+static int version_command = 0;
+static int usage_command = 0;
+static int search_command = 0;
+static int pull_command = 0;
+static int push_command = 0;
+static int commit_command = 0;
+static int add_command = 0;
+
+//points to location of root from which repos must be searched (or NULL if root is . )
+static char* root = ".";
+
+//flags
+static int shallow = 0;
+static int normal = 0;
+
+static int git = 0;
+static int hg = 0;
+
+static int group = 0;
+static queue* gitRepos = NULL;
+static queue* hgRepos = NULL;
+
 //flag parsing data for getopt_long function
 struct option arguments[] = {
   {"version", no_argument, 0, 'v'},
@@ -87,6 +85,9 @@ struct option arguments[] = {
 const char* shortFlags = "vVhHuUsSnNgGaAr:R:";
 int argumentsIndex = 0;
 
+////////////////////////////////
+//////     Execution     ///////
+////////////////////////////////
 //keeps track of which number repo is being printed (for user selection)
 int repoNumber = 0;
 
@@ -125,7 +126,7 @@ int main(int argc, char** argv) {
 
   } else {
 
-    //execute
+    //execute command
     if(help_command) {
 
       printf("%s\n", help);
@@ -152,6 +153,7 @@ int main(int argc, char** argv) {
 			allDirectories = (char**) malloc(sizeof(char*) * MAX_REPOS);
   		repoType = (VC_TYPE*) malloc(sizeof(VC_TYPE) * MAX_REPOS);
 
+			//conduct the traversal
 			if(normal) {
         normalTraverse();
       } else {
@@ -160,48 +162,70 @@ int main(int argc, char** argv) {
 
 			//gather input specifying which repos should be pulled
 			const int MAX_LENGTH = 5000;
-			char input[MAX_LENGTH+2];
-			input[MAX_LENGTH+1] = 1;
+			char input[MAX_LENGTH+1];
 
 			char* ptr;
 			int done = 0;
 
+			//get the command name for use in printing
 			const char* commandName = (pull_command) ? "pull" :
 																(push_command) ? "push" :
 																(commit_command) ? "commit" :
-																"add";
+																(add_command) ? "add" :
+																"something is wrong";
 
 			//variables used to parse
 			int* repoNumbers = NULL;
 			int len;
-			int statusFlag;
+			PARSE_ERROR_TYPE statusFlag;
 
+			//get a list of the repos that must be acted
 			while(!done) {
 
 				//prompt for a list of numbers
 				printf("Enter a list of space-separated numbers specifying which repos you want to %s:\n", commandName);
-				fgets(input, MAX_LENGTH+2, stdin);
+				fgets(input, MAX_LENGTH+1, stdin);
+				clearInputBuffer();
 
-				handlePotentialBufferOveflow(input, MAX_LENGTH+2);
-				repoNumbers = parseRepoSpecifiers(input, MAX_REPOS, &len, &statusFlag);
+				repoNumbers = parseRepoSpecifiers(input, repoNumber, &len, &statusFlag);
 
-				if(statusFlag) {
+				switch(statusFlag) {
 
-					char response[3];
-					response[2] = 1;
+					case FORMAT_ERROR: {
 
-					printf("Error in input, must be a list of space-separated numbers (no commas)\n");
-					printf("Enter y to re-input the repo numbers or anything else not starting with y to quit:");
-					fgets(response, 3, stdin);
+						char response[3];
+						printf("Error in input, must be a list of space-separated numbers (no commas)\n");
+						printf("Enter y to re-input the repo numbers or anything else not starting with y to quit:");
+						fgets(response, 3, stdin);
+						clearInputBuffer();
 
-					handlePotentialBufferOveflow(input, MAX_LENGTH+2);
-					if(response[0] != 'y' && response[0] != 'Y') {
+						if(response[0] != 'y' && response[0] != 'Y') {
+							done = 1;
+						}
+						break;
+					}
+
+					case BOUNDS_ERROR: {
+
+						char response[3];
+
+						printf(">= 1 of the repo numbers entered is out of bounds\n");
+						printf("Enter y to re-input the repo numbers or anything else not starting with y to quit:");
+						fgets(response, 3, stdin);
+						clearInputBuffer();
+
+						if(response[0] != 'y' && response[0] != 'Y') {
+							done = 1;
+						}
+						break;
+					}
+
+					case SUCCESS: {
 						done = 1;
 					}
 
-				} else {
-					done = 1;
 				}
+
 			}
 
 			//execute command on selected repositories
@@ -781,8 +805,6 @@ void parseArguments(int argc, char** argv) {
 
   //parse command (should only be 1)
   for(int i = optind; i < argc; i++) {
-
-		printf("command: %s\n", argv[i]);
 
     if(strcmp(argv[i], "version") == 0) {
       version_command = 1;

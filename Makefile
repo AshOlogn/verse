@@ -4,7 +4,8 @@ source = main.c \
 	queue.c
 
 include = util.h \
-	queue.h
+	queue.h \
+	main.h
 
 bin/verse: $(addprefix src/, $(source)) $(addprefix include/, $(include))
 	gcc -Iinclude -o bin/verse $(addprefix src/, $(source))

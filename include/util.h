@@ -5,8 +5,14 @@
 char* getFreeableString(char* str);
 int checkIfBufferOverflow(char* input, int maxLen);
 void clearInputBuffer();
-void handlePotentialBufferOveflow(char* input, int maxLen);
-int* parseRepoSpecifiers(char* str, int maxRepos, int* len, int* statusFlag);
 
+//for error reporting
+typedef enum PARSE_ERROR_TYPE {
+	FORMAT_ERROR,
+	BOUNDS_ERROR,
+	SUCCESS
+} PARSE_ERROR_TYPE;
+
+int* parseRepoSpecifiers(char* str, int maxRepos, int* len, PARSE_ERROR_TYPE* statusFlag);
 
 #endif
