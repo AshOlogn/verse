@@ -254,6 +254,10 @@ int main(int argc, char** argv) {
 				//get info on current selected directory
 				char* directory = getFreeableString(allDirectories[repoNumbers[i]]);
 				VC_TYPE vcType = repoType[repoNumbers[i]];
+				const char* vcTypeString = (vcType == GIT_TYPE) ? "Git" : "Mercurial";
+
+				//print that a new repo is being acted on
+				printf("\nNow %sing %s (%s):\n", commandName, directory, vcTypeString);
 
 				if(push_command) {
 
@@ -314,55 +318,46 @@ int main(int argc, char** argv) {
 
 					char* commitCommandText = (char*) malloc(sizeof(char) * MAX_COMMAND_LENGTH);
 
+					//whether to skip this repo or not
+					int skip = 0;
+
 					switch(vcType) {
 
 						case GIT_TYPE: {
 							
-							char commitMessageText[MAX_COMMIT_MESSAGE_LENGTH+2];
+							char commitMessageText[MAX_COMMIT_MESSAGE_LENGTH+1];
 							
 							int done = 0;
 							while(!done) {
 
-								commitMessageText[MAX_COMMIT_MESSAGE_LENGTH+1] = 1;
+								commitMessageText[MAX_COMMIT_MESSAGE_LENGTH] = 1;
 								printf("Enter a commit message in less than 500 characters: ");
-								fgets(commitMessageText, MAX_COMMIT_MESSAGE_LENGTH+2, stdin);
+								fgets(commitMessageText, MAX_COMMIT_MESSAGE_LENGTH+1, stdin);
 
-								//if overflow, ask if the message should be kept or redone
-								if(checkIfBufferOverflow(commitMessageText, MAX_COMMIT_MESSAGE_LENGTH+2)) {
+								printf("The following is the input commit message:\n");
+								printf("%s\n", commitMessageText);
+								printf("Enter y to commit with the above message, q to quit, or anything else not beginning with y or q	to retype it: ");
 
-									printf("The input message exceeded the 500-character limit. The following is the truncated message:\n");
-									printf("%s\n", commitMessageText);
-									printf("Enter y to commit with the above message or anything else not beginning with y to retype it: ");
+								//get the yes or input
+								char response[3];
+								response[2] = 1;
+								fgets(response, 3, stdin);
 
-									//get the yes or input
-									char response[3];
-									response[2] = 1;
-									fgets(response, 3, stdin);
-
-									if(response[0] == 'y' || response[0] == 'Y') {
-										done = 1;
-									}
-									
-								} else {
-
-									printf("The following is the input commit message:\n");
-									printf("%s\n", commitMessageText);
-									printf("Enter y to commit with the above message or anything else not beginning with y to retype it: ");
-
-									//get the yes or input
-									char response[3];
-									response[2] = 1;
-									fgets(response, 3, stdin);
-
-									if(response[0] == 'y' || response[0] == 'Y') {
-										done = 1;
-									}
+								if(response[0] == 'y' || response[0] == 'Y') {
+									done = 1;
+								} else if(response[0] == 'q' || response[0] == 'Q') {
+									done = 1;
+									skip = 1;
 								}
 							}
 
-							//execute commit statement
-							snprintf(commitCommandText, MAX_COMMAND_LENGTH, "cd %s && git commit -m %s", directory, commitMessageText);
-							system(commitCommandText);
+							if(!skip) {
+								//execute commit statement
+								snprintf(commitCommandText, MAX_COMMAND_LENGTH, "cd %s && git commit -m \"%s\"", directory, commitMessageText);
+								system(commitCommandText);
+							} else {
+								printf("repo skipped ...\n");
+							}
 
 							break;
 						}
@@ -383,55 +378,45 @@ int main(int argc, char** argv) {
 				} else if(add_command) {
 
 					char* addCommandText = (char*) malloc(sizeof(char) * MAX_COMMAND_LENGTH);
-					char addMessageText[MAX_ADD_MESSAGE_LENGTH+2];
+					char addMessageText[MAX_ADD_MESSAGE_LENGTH+1];
 
 					int done = 0;
+					int skip = 0;
+
 					while(!done) {
 
-						addMessageText[MAX_ADD_MESSAGE_LENGTH+1] = 1;
+						addMessageText[MAX_ADD_MESSAGE_LENGTH] = 1;
 						printf("Enter the add command arguments: ");
 						fgets(addMessageText, MAX_ADD_MESSAGE_LENGTH+2, stdin);
 
-						if(checkIfBufferOverflow(addMessageText, MAX_ADD_MESSAGE_LENGTH+2)) {
+						printf("The following are the input add arguments:\n");
+						printf("%s\n", addMessageText);
+						printf("Enter y to add with the above arguments, q to quit, or anything else not beginning with y or q to retype it: ");
 
-							printf("The input arguments exceeded the 500-character limit. The following is the truncated input:\n");
-							printf("%s\n", addMessageText);
-							printf("Enter y to add with the above arguments or anything else not beginning with y to retype it: ");
+						//get the yes or input
+						char response[3];
+						response[2] = 1;
+						fgets(response, 3, stdin);
 
-							//get the yes or input
-							char response[3];
-							response[2] = 1;
-							fgets(response, 3, stdin);
-
-							if(response[0] == 'y' || response[0] == 'Y') {
-								done = 1;
-							}
-
-						} else {
-
-							printf("The following are the input add arguments:\n");
-							printf("%s\n", addMessageText);
-							printf("Enter y to add with the above arguments or anything else not beginning with y to retype it: ");
-
-							//get the yes or input
-							char response[3];
-							response[2] = 1;
-							fgets(response, 3, stdin);
-
-							if(response[0] == 'y' || response[0] == 'Y') {
-								done = 1;
-							}
+						if(response[0] == 'y' || response[0] == 'Y') {
+							done = 1;
+						} else if(response[0] == 'q' || response[0] == 'Q') {
+							done = 1;
+							skip = 1;
 						}
 					}
 
 					//execute command
-					if(vcType == GIT_TYPE) {
-						snprintf(addMessageText, MAX_COMMAND_LENGTH, "cd %s && git add %s", directory, addCommandText);
-					} else {
-						snprintf(addMessageText, MAX_COMMAND_LENGTH, "cd %s && hg add %s", directory, addCommandText);
-					}
+					if(!skip) {
 
-					system(addMessageText);
+						if(vcType == GIT_TYPE) {
+							snprintf(addMessageText, MAX_COMMAND_LENGTH, "cd %s && git add %s", directory, addCommandText);
+						} else {
+							snprintf(addMessageText, MAX_COMMAND_LENGTH, "cd %s && hg add %s", directory, addCommandText);
+						}
+
+						system(addMessageText);
+					}
 
 					//free command string
 					free(addMessageText);				
