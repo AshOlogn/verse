@@ -183,9 +183,8 @@ int main(int argc, char** argv) {
 			while(!done) {
 
 				//prompt for a list of numbers
-				printf("Enter a list of space-separated numbers specifying which repos you want to %s:\n", commandName);
+				printf("Enter a list of space-separated numbers specifying which repos you want to %s: \n", commandName);
 				fgets(input, MAX_LENGTH+1, stdin);
-				clearInputBuffer();
 
 				repoNumbers = parseRepoSpecifiers(input, repoNumber, &len, &statusFlag);
 
@@ -195,12 +194,11 @@ int main(int argc, char** argv) {
 
 						char response[3];
 						printf("Error in input, must be a list of space-separated numbers (no commas)\n");
-						printf("Enter y to re-input the repo numbers or anything else not starting with y to quit:");
+						printf("Enter y to re-input the repo numbers or anything else not starting with y to quit: ");
 						fgets(response, 3, stdin);
-						clearInputBuffer();
 
 						if(response[0] != 'y' && response[0] != 'Y') {
-							done = 1;
+							return 0;
 						}
 						break;
 					}
@@ -208,20 +206,33 @@ int main(int argc, char** argv) {
 					case BOUNDS_ERROR: {
 
 						char response[3];
-
 						printf(">= 1 of the repo numbers entered is out of bounds\n");
-						printf("Enter y to re-input the repo numbers or anything else not starting with y to quit:");
+						printf("Enter y to re-input the repo numbers or anything else not starting with y to quit: ");
 						fgets(response, 3, stdin);
-						clearInputBuffer();
 
 						if(response[0] != 'y' && response[0] != 'Y') {
-							done = 1;
+							return 0;
 						}
 						break;
 					}
 
 					case SUCCESS: {
-						done = 1;
+						
+						char response[3];
+						char* repoList = getChosenRepoString(repoNumbers, len);
+
+						printf("The following repos will have the %s command applied:\n%s\n", commandName, repoList);
+						printf("Enter y to continue, q to quit, or anything else not starting with y or q to re-input: ");
+						fgets(response, 3, stdin);
+
+						if(response[0] == 'y' || response[0] == 'Y') {
+							done = 1;
+						} else if(response[0] == 'q' || response[0] == 'Q') {
+							return 0;
+						}
+
+						free(repoList);
+						break;
 					}
 
 				}

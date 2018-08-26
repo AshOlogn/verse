@@ -54,12 +54,11 @@ int* parseRepoSpecifiers(char* str, int maxRepos, int* len, PARSE_ERROR_TYPE* st
 			int index = (int) (next - str);
 
 			while(str[index] != '\0') {
-
 				//catch error cases
 				if(str[index] == '0') {
 					*statusFlag = BOUNDS_ERROR;
 					return repoNumbers;
-				} else if(str[index] != ' ' && !isdigit(str[index])) {
+				} else if(!isspace(str[index]) && !isdigit(str[index])) {
 					*statusFlag = FORMAT_ERROR;
 					return repoNumbers;
 				}
@@ -80,4 +79,37 @@ int* parseRepoSpecifiers(char* str, int maxRepos, int* len, PARSE_ERROR_TYPE* st
 	*statusFlag = SUCCESS;
 	*len = repoCount;
 	return repoNumbers;
+}
+
+//produces formatted string representations of integer arrays
+char* getChosenRepoString(int* repoNumbers, int len) {
+
+	//this is the formatted string that is returned
+	char* str = (char*) malloc(sizeof(char) * 5001);
+	str[0] = '[';
+	str[1] = '\0';
+
+	//this is the temp string that is repeatedly appended to str
+	char* temp = (char*) malloc(sizeof(char) * 6);
+	int temp_len = 5;
+
+	if(len < 1) {
+		return str;
+	} else {
+		temp[0] = 0;
+		snprintf(temp, temp_len, "%d", repoNumbers[0]);
+		strncat(str, temp, temp_len);
+	}
+
+	for(int i = 1; i < len; i++) {
+		temp[0] = 0;
+		snprintf(temp, temp_len, ", %d", repoNumbers[i]);
+		strncat(str, temp, temp_len);
+	}
+
+	//now add a closing bracket
+	strncat(str, "]", 1);
+
+	free(temp);
+	return str;
 }

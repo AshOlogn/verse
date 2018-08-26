@@ -14,5 +14,6 @@ typedef enum PARSE_ERROR_TYPE {
 } PARSE_ERROR_TYPE;
 
 int* parseRepoSpecifiers(char* str, int maxRepos, int* len, PARSE_ERROR_TYPE* statusFlag);
+char* getChosenRepoString(int* repoNumbers, int len);
 
 #endif
